@@ -1,2 +1,5 @@
 .env
-__pycache__/
+myappvenv/
+core/__pycache__/
+gui/__pycache__/
+utils/__pycache__/
