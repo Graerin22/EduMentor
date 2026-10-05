@@ -1,3 +1,4 @@
 .env
 myappvenv/
+sessions.db
 __pycache__/
