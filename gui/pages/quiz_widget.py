@@ -131,8 +131,8 @@ class QuizWidget(QWidget):
             QMessageBox.warning(self, 'Invalid Input', 'Please enter a number.')
             self.num_items_input.clear()
             return
-        if total_questions <= 0 or total_questions > 50:
-            QMessageBox.warning(self, 'Invalid number', 'Please enter a number between 1 and 50.')
+        if total_questions <= 0 or total_questions > 20:
+            QMessageBox.warning(self, 'Invalid number', 'Please enter a number between 1 and 20.')
             self.num_items_input.clear()
             return
 
