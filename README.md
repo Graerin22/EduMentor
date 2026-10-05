@@ -1,4 +1,4 @@
-# EduMentor — AI Teaching Assistant
+# EduMentor - AI Teaching Assistant
 
 A desktop application that turns any study document into an interactive AI-powered learning session.
 
