@@ -102,7 +102,9 @@ EduMentor/
 │   └── session.py               # Session, ChatData, QuizData, TeachbackData
 │
 ├── ui_designs/
-│   ├── login_window.ui
+│   ├── login_widget.ui
+│   ├── register_widget1.ui
+│   ├── register_widget2.ui
 │   ├── chat_widget.ui
 │   ├── quiz_widget.ui
 │   ├── question_widget.ui       # Question slides (loaded N times)
