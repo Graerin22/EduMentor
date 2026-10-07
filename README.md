@@ -361,7 +361,7 @@ teachback_data
 | 5 | Ask a question | Type a question → Send | AI response grounded in the document | Pass |
 | 6 | Save chat | Click Save | Session row added; message shown | Pass |
 | 7 | Generate a quiz | Quiz tab → 5 questions → Generate | 5 question slides appear | Pass |
-| 8 | Submit a wrong answer | Select wrong option → Submit | Feedback shows ❌ and correct explanation | Pass |
+| 8 | Submit a wrong answer | Select wrong option → Submit | Feedback shows correct explanation | Pass |
 | 9 | Blind Spot Report | Finish quiz → Blind Spot Report | Structured study plan appears | Pass |
 | 10 | Teach-back | Enter topic + explanation → Submit | Scores + strengths + gaps shown | Pass |
 | 11 | Load a past quiz | History → double-click a quiz | Quiz reloads into Quiz tab | Pass |
@@ -376,10 +376,9 @@ teachback_data
 - **No cloud sync.** Sessions and API keys live only on the local machine.
 - **SQLite concurrency.** If the app is opened twice from the same directory, the second instance can lock the DB during writes. A lock file or a single-instance guard is not yet implemented.
 - **No image extraction.** PDFs containing scanned images (no text layer) parse as empty. OCR is not implemented.
-- **AI responses are non-deterministic.** The same prompt can produce different wording across runs; the tests in `tests/` therefore validate structure, not exact strings.
+- **AI responses are non-deterministic.** The same prompt can produce different wording across runs.
 - **Quiz JSON parsing can fail** if the model returns prose around the JSON. `QuizWorker` reduces this by enforcing a strict prompt, but a retry mechanism is not yet in place.
 - **No password recovery.** Because the API key is encrypted with the password, a forgotten password means the API key cannot be recovered the account must be deleted and re-created.
-- **Auto-login (keyring) is optional and off by default.** A checkbox in the login window is planned but not yet implemented.
 - **UI files are loaded at runtime with `uic.loadUi`.** Packaging with `pyinstaller` will require bundling the `ui_designs/` folder.
 
 ---
