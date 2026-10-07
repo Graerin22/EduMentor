@@ -54,7 +54,6 @@ A desktop application that turns any study document into an interactive AI-power
 | **Hashing** | `hashlib` (SHA-256), `secrets` (salt generation, constant-time compare) |
 | **Document Parsing** | `pypdf`, `python-docx`, `python-pptx` |
 | **Threading** | `QThread` subclasses so AI calls and file parsing never block the UI |
-| **Keyring (optional)** | `keyring` for "remember me" auto-login |
 
 ### Dependency list
 
@@ -90,6 +89,8 @@ EduMentor/
 │   │   ├── login_window.py      # Login + registration
 │   │   └── main_window.py       # QMainWindow with QTabWidget - wires all pages
 │   └── pages/
+│       ├── login_widget.py      # Login tab
+│       ├── register_widget.py   # Register tab
 │       ├── chat_widget.py       # Mentor tab
 │       ├── quiz_widget.py       # Quiz tab
 │       ├── teach_widget.py      # Teach-back tab
