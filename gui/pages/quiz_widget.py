@@ -40,13 +40,19 @@ class QuizWidget(QWidget):
     def create_new_quiz(self, is_deleted=False):
         if not is_deleted and self.quiz_data.quiz:
             reply = QMessageBox.question(self, 'New Quiz',
-                                         'Start a new quiz?\nYour current quiz will be saved first.',
+                                         'Start a new quiz?',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                          QMessageBox.StandardButton.No)
+            
             if reply == QMessageBox.StandardButton.No:
                 return
-            
-            self.save_quiz_session(True)
+            else:
+                save_reply = QMessageBox.question(self, 'Save Quiz',
+                                             'Do you want to save first?',
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                              QMessageBox.StandardButton.No)
+                if save_reply == QMessageBox.StandardButton.Yes:
+                    self.save_quiz_session(True)
         
         self._reset_attr()
         self.check_if_valid()
@@ -57,9 +63,10 @@ class QuizWidget(QWidget):
 
         timestamp = datetime.now()
         if self.quiz_data.quiz_id != -1:
-            success, message = self.db.update_quiz_session(timestamp, self.current_session, self.quiz_data)
+            success, message = self.db.update_quiz_session(timestamp.strftime('%B %d, %Y at %I:%M %p'), self.current_session, self.quiz_data)
             if success:
                 self.save_btn.setEnabled(False)
+                self.new_quiz_btn.setEnabled(True)
 
                 if not silent:
                     QMessageBox.information(self, 'Success', 'Chat session is updated succesfully.')
@@ -75,18 +82,21 @@ class QuizWidget(QWidget):
                 QMessageBox.information(self, 'Saved', '💾 Quiz session saved!\n')
             
             self.save_btn.setEnabled(False)
+            self.new_quiz_btn.setEnabled(True)
         
 
     def load_session(self, session_obj: Session, item_idx: int):
         self.current_session = session_obj
         self._reset_attr()
-        if not self.current_session or not session_obj.quiz_datas:
+        if not self.current_session or not session_obj.quiz_datas or item_idx < 0:
             return
 
         self.quiz_data = session_obj.quiz_datas[item_idx]
 
         self.total_questions = self.quiz_data.quiz_length()
         self.last_answered_index = -1
+
+        self.new_quiz_btn.setEnabled(False)
         self.generate_quiz_slides(json.loads(self.quiz_data.quiz[1]['parts']))
 
     def _reset_attr(self):
@@ -114,7 +124,7 @@ class QuizWidget(QWidget):
         self.score_label.setText('✅ Score: 0/0')
 
     def check_if_valid(self):
-        if self.quiz_data.quiz:
+        if self.quiz_data.quiz or self.feedback_text.toPlainText().strip():
             return
         if not self.current_session:
             self.feedback_text.setText('⚠️ Save a document and a message on the Mentor Tab first.')
@@ -160,7 +170,6 @@ CRITICAL RULES:
 1. Prepend sequential numbers (1., 2.) to each question.
 2. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
 3. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
-4. Do NOT generate Markdown matrix tables using pipes (|).
 """
         self.quiz_data.quiz.append({'role':'user', 'parts':content})
         self.quiz_worker = QuizWorker(self.quiz_data.quiz)
@@ -169,7 +178,6 @@ CRITICAL RULES:
         self.quiz_worker.start()
 
     def generate_quiz_slides(self, questions):
-        print(questions)
         self.answer_key = []
         for i in range(self.total_questions):
             slide_widget = QWidget()
@@ -189,7 +197,7 @@ CRITICAL RULES:
         self.quiz_data.quiz.append({'role':'model', 'parts':json.dumps(questions)})
 
         self.inner_slide_stack.slide_to_index(1)
-        QTimer.singleShot(600, lambda: self.inner_slide_stack.removeWidget(self.inner_slide_stack.widget(0)))
+        QTimer.singleShot(500, lambda: self.inner_slide_stack.removeWidget(self.inner_slide_stack.widget(0)))
 
     def confirm_answer(self):
         active_page = self.inner_slide_stack.currentWidget()
@@ -198,12 +206,11 @@ CRITICAL RULES:
             QMessageBox.warning(self, 'Selection Required', 'Please select an option before submitting.')
             return
 
-        chosen_answer = selected_btn.text()[0]
+        chosen_answer = selected_btn.text()
 
         curr = self.inner_slide_stack.currentIndex()
         active_page.submit_answer_btn.setEnabled(False)
         active_page.confidence_slider.setEnabled(False)
-        self.new_quiz_btn.setEnabled(False)
         for btn in active_page.choices_group.buttons():
             btn.setEnabled(False)
 
@@ -215,7 +222,7 @@ Adapt tone/feedback depth based on user confidence (e.g., address high confidenc
 CRITICAL FORMATTING RULES:
 1. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
 2. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
-3. Do NOT generate Markdown matrix tables using pipes (|)."""
+"""
         self.quiz_data.quiz.append({'role':'user', 'parts':prompt})
 
         self.answer_confirmer = AIWorker(self.quiz_data.quiz)
@@ -229,55 +236,59 @@ CRITICAL FORMATTING RULES:
         self.score_label.setText(f'✅ Score: {self.quiz_data.quiz_score}/{self.total_questions}')
 
     def go_next_question(self):
+        self.feedback_text.clear()
         next_idx = self.inner_slide_stack.currentIndex() + 1
-
-        if next_idx <= self.last_answered_index:
-            self.next_btn.setEnabled(True)
-        else:
-            self.next_btn.setEnabled(False)
 
         if next_idx < len(self.quiz_data.feedbacks):
             self.set_feedback(self.quiz_data.feedbacks[next_idx])
+
+        if next_idx == self.total_questions-1:
+            self.next_btn.setEnabled(False)
+        elif next_idx <= self.last_answered_index:
+            self.next_btn.setEnabled(True)
+        else:
+            self.next_btn.setEnabled(False)
 
         self.inner_slide_stack.slide_to_index(next_idx)
 
         def _update():
             self.prev_btn.setEnabled(True)
 
-        QTimer.singleShot(600, lambda: _update())
+        QTimer.singleShot(500, lambda: _update())
 
     def go_prev_question(self):
+        self.feedback_text.clear()
         prev_idx = self.inner_slide_stack.currentIndex() - 1
+
+        if prev_idx >= 0 and prev_idx < len(self.quiz_data.feedbacks):
+            self.set_feedback(self.quiz_data.feedbacks[prev_idx])
         
         if prev_idx > 0:
             self.prev_btn.setEnabled(True)
         else:
             self.prev_btn.setEnabled(False)
 
-        if prev_idx >= 0 and prev_idx < len(self.quiz_data.feedbacks):
-            self.set_feedback(self.quiz_data.feedbacks[prev_idx])
-
         self.inner_slide_stack.slide_to_index(prev_idx)
 
         def _update():
             self.next_btn.setEnabled(True)
 
-        QTimer.singleShot(600, lambda: _update())
+        QTimer.singleShot(500, lambda: _update())
 
     def final_result(self):
         self.bs_report_btn.setEnabled(False)
-        self.new_quiz_btn.setEnabled(False)
         json_quiz_result = json.dumps(self.quiz_data.quiz_result, indent=4, sort_keys=True)
         prompt = f"""Analyze quiz results:
 {json_quiz_result}
-Generate:
+Do NOT repeat or include any question-specific feedback, answers, or confidence check logs in your next response."
+Generate ONLY the final summary report under these three clean headers
 1. Blind Spot Report: Identify weak content areas/gaps.
 2. Action Plan: Concrete study steps to resolve gaps.
 3. Resources: Specific topics, books, or web resources to review.
 CRITICAL FORMATTING RULES:
 1. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
 2. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
-3. Do NOT generate Markdown matrix tables using pipes (|)."""
+"""
         self.quiz_data.quiz.append({'role':'user', 'parts':prompt})
 
         self.result_worker = AIWorker(self.quiz_data.quiz)
@@ -292,13 +303,13 @@ CRITICAL FORMATTING RULES:
         cursor.insertMarkdown(response)
         self.feedback_text.setTextCursor(cursor)
         self.feedback_text.verticalScrollBar().setValue(0)
-        self.quiz_data.feedbacks.append(response)
 
     def on_ai_response(self, response):
         worker = self.sender()
         req_data = getattr(worker, 'req_data')
 
         self.set_feedback(response)
+        self.quiz_data.feedbacks.append(response)
         if req_data['req_type'] == 'confirm':
             self.last_answered_index = req_data['attr'][0]
             chosen_answer = req_data['attr'][1]
@@ -313,7 +324,7 @@ CRITICAL FORMATTING RULES:
             if self.last_answered_index == self.total_questions-1:
                 self.bs_report_btn.setEnabled(True)
                 return
-            
+
             self.next_btn.setEnabled(True)
 
         elif req_data['req_type'] == 'result':
@@ -321,10 +332,10 @@ CRITICAL FORMATTING RULES:
             self.inner_slide_stack.hide()
 
             self.save_btn.setEnabled(True)
+            self.new_quiz_btn.setEnabled(True)
             self.prev_btn.setEnabled(False)
 
         self.quiz_data.quiz.append({'role':'model', 'parts':response})
-        self.new_quiz_btn.setEnabled(True)
 
     def on_ai_error(self, error_msg):
         worker = self.sender()
@@ -334,6 +345,7 @@ CRITICAL FORMATTING RULES:
             self.num_items_input.setReadOnly(False)
             self.num_items_input.clear()
             self.generate_btn.setEnabled(True)
+            self.new_quiz_btn.setEnabled(True)
         elif req_data['req_type'] == 'confirm':
             curr_widget = req_data['attr'][2]
             curr_widget.submit_answer_btn.setEnabled(True)
@@ -341,14 +353,12 @@ CRITICAL FORMATTING RULES:
         elif req_data['req_type'] == 'result':
             self.bs_report_btn.setEnabled(True)
 
-        print(error_msg)
         self.feedback_text.clear()
         if '503 UNAVAILABLE' in error_msg:
             self.feedback_text.append('⚠️ Google servers overloaded.')
-            self.feedback_text.append(' You can try changing the AI model in the settings tab.\n')
+            self.feedback_text.append('You can try changing the AI model in the settings tab.\n')
         else:
             self.feedback_text.append(f'❌ Error: {error_msg}\n\nPlease try again.')
 
         if self.quiz_data.quiz:
             self.quiz_data.quiz.pop()
-        self.new_quiz_btn.setEnabled(True)

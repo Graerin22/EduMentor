@@ -84,11 +84,10 @@ class SettingsWidget(QWidget):
 
     def _handle_invalid_key(self, error_msg):
         if '503 UNAVAILABLE' in error_msg:
-            self.key_status_label.setText('⚠️ Google servers overloaded.')
+            self.key_status_label.setText('⚠️ Google servers overloaded.\nYou can try changing the AI model')
         else:
             self.key_status_label.setText('❌ Invalid key!')
 
-        print(error_msg, end='\n\n')
         self.api_key_input.clear()
         self.api_key_input.setEnabled(True)
         self.test_btn.setEnabled(True)

@@ -93,25 +93,26 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        session_name = f'session_{timestamp.strftime('%Y-%m-%d_%H%M%S')}'
+        str_timestamp = timestamp.strftime('%B %d, %Y at %I:%M %p')
+        session_name = f"session_{timestamp.strftime('%Y-%m-%d_%H%M%S')}"
         cursor.execute("""
             INSERT INTO session
             (user_id, timestamp, session_name)
             VALUES (?, ?, ?)
         """, (user_id, 
-              timestamp.isoformat(),
+              str_timestamp,
               session_name
               )
         )
         new_session_id = cursor.lastrowid
 
-        chat_name = f'chat_{chat_obj.filename}-{timestamp.strftime('%Y-%m-%d_%H%M%S')}'
+        chat_name = f"chat_{chat_obj.filename.split('.')[0]}-{timestamp.strftime('%H%M%S')}"
         cursor.execute("""
             INSERT INTO chat_data
             (session_id, timestamp, chat_name, filename, document_text, chats)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (new_session_id,
-              timestamp.isoformat(),
+              str_timestamp,
               chat_name,
               chat_obj.filename,
               chat_obj.document_text,
@@ -124,10 +125,11 @@ class Database:
 
         chat_obj.chat_id = new_chat_id
         chat_obj.session_id = new_session_id
+        chat_obj.timestamp = str_timestamp
         chat_obj.chat_name = chat_name
         
         return Session(session_id=new_session_id, user_id=user_id, 
-                       timestamp=timestamp, session_name=session_name,
+                       timestamp=str_timestamp, session_name=session_name,
                        chat_data=chat_obj)
 
     def update_chat_session(self, timestamp, session_obj: Session, chat_obj: ChatData) -> tuple[bool, str]:
@@ -139,7 +141,7 @@ class Database:
                 UPDATE chat_data
                 SET timestamp = ?, chats = ?
                 WHERE session_id = ? AND chat_id = ?
-            """, (timestamp.isoformat(),
+            """, (timestamp,
                   json.dumps(chat_obj.chats),
                   session_obj.session_id,
                   chat_obj.chat_id)
@@ -147,8 +149,9 @@ class Database:
             cursor.execute("""
                 UPDATE session
                 SET timestamp = ?
-                WHERE session_id = ?
-            """, (timestamp.isoformat(),
+                WHERE user_id = ? AND session_id = ?
+            """, (timestamp,
+                  session_obj.user_id, 
                   session_obj.session_id)
             )
 
@@ -165,14 +168,15 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        new_quiz_name = f'quiz_{timestamp.strftime('%Y-%m-%d_%H%M%S')}'
+        str_timestamp = timestamp.strftime('%B %d, %Y at %I:%M %p')
+        new_quiz_name = f"quiz_{timestamp.strftime('%Y-%m-%d_%H%M%S')}"
         cursor.execute("""
             INSERT INTO quiz_data
             (session_id, timestamp, quiz_name, quiz_score,
              quiz, quiz_result, feedbacks)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (session_obj.session_id,
-              timestamp.isoformat(),
+              str_timestamp,
               new_quiz_name,
               quiz_obj.quiz_score,
               json.dumps(quiz_obj.quiz),
@@ -185,6 +189,7 @@ class Database:
 
         quiz_obj.quiz_id = new_quiz_id
         quiz_obj.session_id = session_obj.session_id
+        quiz_obj.timestamp = str_timestamp
         quiz_obj.quiz_name = new_quiz_name
 
         session_obj.quiz_datas.append(quiz_obj)
@@ -199,7 +204,7 @@ class Database:
                 SET timestamp = ?, quiz_score = ?, quiz = ?,
                     quiz_result = ?, feedbacks = ?
                 WHERE session_id = ? and quiz_id = ?
-            """, (timestamp.isoformat(), 
+            """, (timestamp, 
                   json.dumps(quiz_obj.quiz_score),
                   json.dumps(quiz_obj.quiz),
                   json.dumps(quiz_obj.quiz_result),
@@ -207,8 +212,8 @@ class Database:
                   session_obj.session_id,
                   quiz_obj.quiz_id)
             )
-            cursor.execute("UPDATE session SET timestamp = ? WHERE user_id = ?",
-                           (timestamp, session_obj.session_id))
+            cursor.execute("UPDATE session SET timestamp = ? WHERE user_id = ? AND session_id = ?",
+                           (timestamp, session_obj.user_id, session_obj.session_id))
 
             conn.commit()
             quiz_obj.timestamp = timestamp
@@ -223,14 +228,15 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        new_teachback_name = f'teachback_{timestamp.strftime('%Y-%m-%d_%H%M%S')}'
+        str_timestamp = timestamp.strftime('%B %d, %Y at %I:%M %p')
+        new_teachback_name = f"teachback_{timestamp.strftime('%Y-%m-%d_%H%M%S')}"
         cursor.execute("""
             INSERT INTO teachback_data
             (session_id, timestamp, teachback_name, 
              topic, explanation, teachback)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (session_obj.session_id,
-              timestamp.isoformat(),
+              str_timestamp,
               new_teachback_name,
               teachback_obj.topic,
               teachback_obj.explanation,
@@ -240,11 +246,12 @@ class Database:
         conn.commit()
         conn.close()
 
-        teachback_obj.quiz_id = new_teachback_id
+        teachback_obj.teachback_id = new_teachback_id
         teachback_obj.session_id = session_obj.session_id
-        teachback_obj.quiz_name = new_teachback_name
+        teachback_obj.timestamp = str_timestamp
+        teachback_obj.teachback_name_name = new_teachback_name
 
-        session_obj.quiz_datas.append(teachback_obj)
+        session_obj.teachback_datas.append(teachback_obj)
 
     def update_teachback_session(self, timestamp, session_obj: Session, teachback_obj: TeachbackData) -> tuple[bool, str]:
         conn = self.get_connection()
@@ -256,15 +263,15 @@ class Database:
                 SET timestamp = ?, topic = ?,
                     explanation = ?, teachback = ?
                 WHERE session_id = ? and teachback_id = ?
-            """, (timestamp.isoformat(), 
-                  json.dumps(teachback_obj.topic),
-                  json.dumps(teachback_obj.explanation),
+            """, (timestamp, 
+                  teachback_obj.topic,
+                  teachback_obj.explanation,
                   json.dumps(teachback_obj.teachback),
                   session_obj.session_id,
                   teachback_obj.teachback_id)
             )
-            cursor.execute("UPDATE session SET timestamp = ? WHERE user_id = ?",
-                           (timestamp, session_obj.session_id))
+            cursor.execute("UPDATE session SET timestamp = ? WHERE user_id = ? AND session_id = ?",
+                           (timestamp, session_obj.user_id, session_obj.session_id))
             
             conn.commit()
             teachback_obj.timestamp = timestamp
@@ -319,6 +326,7 @@ class Database:
                         quiz_score, quiz, quiz_result, feedbacks
                 FROM quiz_data
                 WHERE session_id = ?
+                ORDER BY timestamp DESC
             """, (s_id,))
             for q_row in cursor.fetchall():
                 session_obj.quiz_datas.append(QuizData(quiz_id=q_row[0],
@@ -336,6 +344,7 @@ class Database:
                         topic, explanation, teachback
                 FROM teachback_data
                 WHERE session_id = ?
+                ORDER BY timestamp DESC
             """, (s_id,))
             for t_row in cursor.fetchall():
                 session_obj.teachback_datas.append(TeachbackData(teachback_id=t_row[0],
@@ -375,13 +384,21 @@ class Database:
         cursor = conn.cursor()
 
         try:
+            api_key = self._decrypt_api_key(user_obj.encrypted_api_key, 
+                                            user_obj.password_hash,
+                                            user_obj.salt)
             new_password_hash, new_salt = self._hash_password(new_password)
-            cursor.execute("UPDATE user SET password_hash = ?, salt = ? WHERE user_id = ?",
-                           (new_password_hash, new_salt, user_obj.user_id))
+            new_encrypted_api_key = self._encrypt_api_key(api_key, new_password_hash, new_salt)
+            cursor.execute("""UPDATE user 
+                SET password_hash = ?, salt = ?, encrypted_api_key = ?
+                WHERE user_id = ?
+            """, (new_password_hash, new_salt, 
+                  new_encrypted_api_key, user_obj.user_id))
 
             conn.commit()
             user_obj.password_hash = new_password_hash
             user_obj.salt = new_salt
+            user_obj.encrypted_api_key = new_encrypted_api_key
             
             return True, ''
         except sqlite3.Error as e:
@@ -406,18 +423,23 @@ class Database:
         finally:
             conn.close()
 
-    def rename_session(self, new_name, session_obj: Session) -> tuple[bool, str]:
+    def rename_session(self, timestamp, new_name, session_obj: Session) -> tuple[bool, str]:
         conn = self.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
                 UPDATE session
-                SET session_name = ?
+                SET timestamp = ?, session_name = ?
                 WHERE user_id = ? AND session_id = ?
-            """, (new_name, session_obj.user_id, session_obj.session_id))
+            """, (timestamp,
+                  new_name, 
+                  session_obj.user_id, 
+                  session_obj.session_id)
+            )
 
             conn.commit()
+            session_obj.timestamp = timestamp
             session_obj.session_name = new_name
 
             return True, ''
@@ -426,18 +448,22 @@ class Database:
         finally:
             conn.close()
 
-    def rename_chat_data(self, new_name, chat_obj: ChatData) -> tuple[bool, str]:
+    def rename_chat_data(self, timestamp, new_name, chat_obj: ChatData) -> tuple[bool, str]:
         conn = self.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
                 UPDATE chat_data
-                SET chat_name = ?
-                WHERE session_id = ?
-            """, (new_name, chat_obj.session_id))
+                SET timestamp = ?, chat_name = ?
+                WHERE chat_id = ? AND session_id = ?
+            """, (timestamp,
+                  new_name, 
+                  chat_obj.chat_id,
+                  chat_obj.session_id))
 
             conn.commit()
+            chat_obj.timestamp = timestamp
             chat_obj.chat_name = new_name
 
             return True, '' 
@@ -446,18 +472,22 @@ class Database:
         finally:
             conn.close()
 
-    def rename_quiz_data(self, new_name, quiz_obj: QuizData) -> tuple[bool, str]:
+    def rename_quiz_data(self, timestamp, new_name, quiz_obj: QuizData) -> tuple[bool, str]:
         conn = self.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
                 UPDATE quiz_data
-                SET quiz_name = ?
-                WHERE session_id = ?
-            """, (new_name, quiz_obj.session_id))
+                SET timestamp = ?, quiz_name = ?
+                WHERE quiz_id = ? AND session_id = ?
+            """, (timestamp,
+                  new_name,
+                  quiz_obj.quiz_id,
+                  quiz_obj.session_id))
 
             conn.commit()
+            quiz_obj.timestamp = timestamp
             quiz_obj.quiz_name = new_name
 
             return True, ''
@@ -467,18 +497,21 @@ class Database:
             conn.close()
         
 
-    def rename_teachback_data(self, new_name, teachback_obj: TeachbackData) -> tuple[bool, str]:
+    def rename_teachback_data(self, timestamp, new_name, teachback_obj: TeachbackData) -> tuple[bool, str]:
         conn = self.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
                 UPDATE teachback_data
-                SET teachback_name = ?
+                SET timestamp = ?, teachback_name = ?
                 WHERE session_id = ?
-            """, (new_name, teachback_obj.session_id))
+            """, (timestamp, 
+                  new_name, 
+                  teachback_obj.session_id))
 
             conn.commit()
+            teachback_obj.timestamp = timestamp
             teachback_obj.teachback_name = new_name
 
             return True, ''
@@ -526,8 +559,8 @@ class Database:
         try:
             cursor.execute("""
                 DELETE FROM chat_data
-                WHERE session_id = ?
-            """, (chat_obj.session_id,))
+                WHERE chat_id = ? AND session_id = ?
+            """, (chat_obj.chat_id, chat_obj.session_id,))
 
             conn.commit()
             return True, ''
@@ -543,8 +576,8 @@ class Database:
         try:
             cursor.execute("""
                 DELETE FROM quiz_data
-                WHERE session_id = ?
-            """, (quiz_obj.session_id,))
+                WHERE quiz_id AND session_id = ?
+            """, (quiz_obj.quiz_id, quiz_obj.session_id,))
 
             conn.commit()
             return True, ''
@@ -560,8 +593,8 @@ class Database:
         try:
             cursor.execute("""
                 DELETE FROM teachback_data
-                WHERE session_id = ?
-            """, (teachback_obj.session_id,))
+                WHERE teachback_id = ? AND session_id = ?
+            """, (teachback_obj.teachback_id, teachback_obj.session_id,))
 
             conn.commit()
             return True, ''
@@ -599,23 +632,28 @@ class Database:
         password_hash, salt = self._hash_password(password)
         encrypted_key = self._encrypt_api_key(api_key, password_hash, salt)
 
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO user
+                (username, password_hash, salt, encrypted_api_key, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (username, 
+                  password_hash, 
+                  salt, encrypted_key, 
+                  datetime.now().strftime('%B %d, %Y at %I:%M %p'))
+            )
 
-                cursor.execute("""
-                    INSERT INTO user
-                    (username, password_hash, salt, encrypted_api_key, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (username, password_hash, salt, encrypted_key, datetime.now().isoformat()))
-
-                conn.commit()
-            
+            conn.commit()
             return True, 'Account created successfully!'
         except sqlite3.IntegrityError:
             return False, 'Username already exists.'
         except Exception as e:
             return False, f'Error: {str(e)}'
+        finally:
+            conn.close()
 
     def authenticate_user(self, username, password):
         conn = self.get_connection()
@@ -642,7 +680,9 @@ class Database:
             UPDATE user
             SET last_login = ?
             WHERE user_id = ?
-        """, (datetime.now().isoformat(), user_id))
+        """, (datetime.now().strftime('%B %d, %Y at %I:%M %p'),
+              user_id)
+        )
 
         conn.commit()
         conn.close()

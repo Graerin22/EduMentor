@@ -20,6 +20,7 @@ class EduMentor:
 
     def on_login(self, user: User):
         self.main_window = MainWindow(user)
+        self.main_window.login_requested.connect(self.run)
         self.main_window.show()
 
 if __name__ == '__main__':

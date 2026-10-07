@@ -97,7 +97,7 @@ class RegisterWidget(SlidingStackedWidget):
 
     def _handle_invalid_key(self, error_msg):
         if '503 UNAVAILABLE' in error_msg:
-            self.step2_register.key_status_label.setText('⚠️ Google servers overloaded.')
+            self.step2_register.key_status_label.setText('⚠️ Google servers overloaded.\nYou can try changing the AI model.')
         else:
             self.step2_register.key_status_label.setText('❌ Invalid key!')
 

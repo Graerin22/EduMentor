@@ -312,6 +312,9 @@
                <height>16777215</height>
               </size>
              </property>
+             <property name="currentIndex">
+              <number>4</number>
+             </property>
              <item>
               <property name="text">
                <string>gemini-3.8-flash</string>

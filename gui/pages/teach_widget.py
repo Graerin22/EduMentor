@@ -26,14 +26,20 @@ class TeachWidget(QWidget):
 
     def create_new_teachback(self, is_deleted=False):
         if not is_deleted and self.teachback_data.teachback:
-            reply = QMessageBox.question(self, 'New Teachback',
-                                         'Start a new teachback?\nYour current quiz will be saved first.',
+            reply = QMessageBox.question(self, 'New Teach-back',
+                                         'Start a new teach-back?',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                          QMessageBox.StandardButton.No)
+            
             if reply == QMessageBox.StandardButton.No:
                 return
-            
-            self.save_teachback_session(True)
+            else:
+                save_reply = QMessageBox.question(self, 'Save Teach-back',
+                                             'Do you want to save first?',
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                              QMessageBox.StandardButton.No)
+                if save_reply == QMessageBox.StandardButton.Yes:
+                    self.save_quiz_session(True)
 
         self._reset_attr()
         self.check_if_valid()
@@ -44,7 +50,7 @@ class TeachWidget(QWidget):
 
         timestamp = datetime.now()
         if self.teachback_data.teachback_id != -1:
-            success, message = self.db.update_teachback_session(timestamp, self.current_session, self.teachback_data)
+            success, message = self.db.update_teachback_session(timestamp.strftime('%B %d, %Y at %I:%M %p'), self.current_session, self.teachback_data)
             if success:
                 self.save_btn.setEnabled(False)
 
@@ -66,7 +72,7 @@ class TeachWidget(QWidget):
     def load_session(self, session_obj: Session, item_idx):
         self.current_session = session_obj
         self._reset_attr()
-        if not self.current_session or not session_obj.teachback_datas:
+        if not self.current_session or not session_obj.teachback_datas or item_idx < 0:
             return
 
         self.teachback_data = self.current_session.teachback_datas[item_idx]
@@ -103,10 +109,10 @@ class TeachWidget(QWidget):
 
     def submit_explanation(self):
         self.feedback_text.clear()
-        topic = self.topic_input.toPlainText().strip()
-        explanation = self.explanation_input.toPlainText().strip()
+        self.teachback_data.topic = self.topic_input.toPlainText().strip()
+        self.teachback_data.explanation = self.explanation_input.toPlainText().strip()
 
-        if not topic or not explanation:
+        if not self.teachback_data.topic or not self.teachback_data.explanation:
             self.feedback_text.setText('⚠️ Please enter both a topic and your explanation.')
             return
 
@@ -120,12 +126,17 @@ Provide feedback in this format:
 3. Analogies/Examples (Score 1-10): Did they use good examples?
 4. What they got right: List 2-3 strengths
 5. What they missed: List 2-3 concepts they should add
-6. Overall Score: X/10"""
+6. Overall Score: X/10
+NOTICE: DO NOT EVALUATE THE SOURCE(USE IT AS A GUIDE), JUST THE EXPLANATION.
+CRITICAL FORMATTING RULES:
+1. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
+2. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
+"""
         
         if not self.teachback_data.teachback:
-            self.teachback_data.teachback.append({'role':'user', 'parts':f'Source: {self.current_session.chat_data.document_text}\nTopic: {topic}\nStudent\'s Explanation: {explanation}'})
+            self.teachback_data.teachback.append({'role':'user', 'parts':f'Source: {self.current_session.chat_data.document_text}\nTopic: {self.teachback_data.topic}\nStudent\'s Explanation: {self.teachback_data.explanation}'})
         else:
-            self.teachback_data.teachback.append({'role':'user','parts':f'Topic: {topic}\nStudent\'s Explanation: {explanation}'})
+            self.teachback_data.teachback.append({'role':'user','parts':f'Topic: {self.teachback_data.topic}\nStudent\'s Explanation: {self.teachback_data.explanation}'})
 
         self.ai_worker = AIWorker(self.teachback_data.teachback, system_prompt)
         self.ai_worker.finished.connect(self.on_ai_response)
@@ -139,7 +150,6 @@ Provide feedback in this format:
         self.feedback_text.setTextCursor(cursor)
 
         self.teachback_data.teachback.append({'role':'model', 'parts':response})
-        self.submit_btn.setEnabled(True)
         self.save_btn.setEnabled(True)
         self.new_btn.setEnabled(True)
 

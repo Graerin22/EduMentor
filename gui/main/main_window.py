@@ -1,3 +1,4 @@
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QMainWindow, QTabWidget, QMessageBox
 from gui.pages.chat_widget import ChatWidget
 from gui.pages.quiz_widget import QuizWidget
@@ -8,6 +9,8 @@ from core.database import Database
 from models.user import User
 
 class MainWindow(QMainWindow):
+    login_requested = pyqtSignal()
+
     def __init__(self, user: User):
         super().__init__()
         self.db = Database()
@@ -30,7 +33,7 @@ class MainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self.chat_widget, '📖 Mentor')
-        self.tabs.addTab(self.quiz_widget, '📝 Quiz')
+        self.tabs.addTab(self.quiz_widget, '💡 Quiz')
         self.tabs.addTab(self.teach_widget, '🗣️ Teach-back')
         self.tabs.addTab(self.history_widget, '📚 History')
         self.tabs.addTab(self.settings_widget, '⚙️ Settings')
@@ -38,24 +41,28 @@ class MainWindow(QMainWindow):
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
 
-    def on_session_load_requested(self, session_obj, tab_idx, item_idx, flag):
-        if flag:
-            self.history_widget.refresh_history()
-        
-        self.chat_widget.load_session(session_obj, flag)
+    def on_session_load_requested(self, session_obj, tab_idx, item_idx, already_loaded=False):
+        self.chat_widget.load_session(session_obj, already_loaded)
         self.quiz_widget.load_session(session_obj, item_idx)
         self.teach_widget.load_session(session_obj, item_idx)
         self.tabs.setCurrentIndex(tab_idx)
 
-    def on_session_delete_requested(self):
+    def on_session_delete_requested(self, tab_idx):
+        if tab_idx == 1:
+            self.quiz_widget.current_session = None
+            self.quiz_widget.create_new_quiz(True)
+            return
+        elif tab_idx == 2:
+            self.teach_widget.current_session = None
+            self.teach_widget.create_new_teachback(True)
+            return
+
         self.chat_widget.create_new_chat(True)
         self.quiz_widget.current_session = None
         self.quiz_widget.create_new_quiz(True)
         self.teach_widget.current_session = None
         self.teach_widget.create_new_teachback(True)
-        self.tabs.blockSignals(True)
         self.tabs.setCurrentIndex(0)
-        self.tabs.blockSignals(False)
 
     def on_tab_changed(self, index):
         if index == 1:
@@ -63,16 +70,17 @@ class MainWindow(QMainWindow):
         elif index ==2:
             self.teach_widget.check_if_valid()
 
-    def closeEvent(self, event):
+    def handle_logout(self):
         reply = QMessageBox.question(self, 'Log-out',
                                     'Are you sure you want to logout?',
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                     QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.No:
-            event.ignore()
             return
         
         self.chat_widget.save_chat_session(silent=True)
         self.quiz_widget.save_quiz_session(silent=True)
         self.teach_widget.save_teachback_session(silent=True)
-        event.accept()
+
+        self.login_requested.emit()
+        self.close()

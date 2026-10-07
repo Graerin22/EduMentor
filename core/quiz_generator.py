@@ -26,12 +26,6 @@ class QuizWorker(QThread):
                 )
             )
 
-            # raw_text = response.text.strip()
-            # if raw_text.startswith("```json"):
-            #     raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
-            # elif raw_text.startswith("```"):
-            #     raw_text = raw_text.split("```")[-1].split("```")[0].strip()
-
             data = json.loads(response.text)
             self.finished.emit(data['questions'])
             

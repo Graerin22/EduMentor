@@ -32,15 +32,21 @@ class ChatWidget(QWidget):
         self.send_btn.clicked.connect(self.send_message)
 
     def create_new_chat(self, is_deleted=False):
-        if not is_deleted and (self.chat_data.chats and self.chat_data.document_text):
-            reply = QMessageBox.question(self, 'Start New Chat', 
-                                         'Start a new chat?\nYour current session will be saved first.',
+        if not is_deleted and self.quiz_data.quiz:
+            reply = QMessageBox.question(self, 'New Chat',
+                                         'Start a new chat?',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                          QMessageBox.StandardButton.No)
-            if reply != QMessageBox.StandardButton.Yes:
-                return
             
-            self.save_chat_session(silent=True)            
+            if reply == QMessageBox.StandardButton.No:
+                return
+            else:
+                save_reply = QMessageBox.question(self, 'Save Chat',
+                                             'Do you want to save first?',
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                              QMessageBox.StandardButton.No)
+                if save_reply == QMessageBox.StandardButton.Yes:
+                    self.save_quiz_session(True)       
 
         self.current_session = None
         self.chat_data = ChatData(chat_id=-1, session_id=-1,
@@ -63,7 +69,7 @@ class ChatWidget(QWidget):
 
         timestamp = datetime.now()
         if self.current_session:
-            success, message = self.db.update_chat_session(timestamp, self.current_session, self.chat_data)
+            success, message = self.db.update_chat_session(timestamp.strftime('%B %d, %Y at %I:%M %p'), self.current_session, self.chat_data)
             if success:
                 self.db.set_current_session(self.current_session)
                 self.save_btn.setEnabled(False)
@@ -81,12 +87,12 @@ class ChatWidget(QWidget):
             self.session_load_requested.emit(self.current_session, 0, -1, True)
 
             if not silent:
-                QMessageBox.information(self, 'Saved', '💾 Quiz session saved!\n')
+                QMessageBox.information(self, 'Saved', '💾 Chat session saved!\n')
 
             self.save_btn.setEnabled(False)
 
-    def load_session(self, session_obj: Session, flag):
-        if flag:
+    def load_session(self, session_obj: Session, already_loaded):
+        if already_loaded:
             return
 
         self.current_session = session_obj
@@ -156,7 +162,7 @@ Explain the concepts from the provided document using clear, universal language 
 CRITICAL FORMATTING RULES:
 1. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
 2. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
-3. Do NOT generate Markdown matrix tables using pipes (|)."""
+"""
         
         if not self.chat_data.chats:
             self.chat_data.chats.append({'role':'user', 'parts':f'Source Doc:\n{self.chat_data.document_text[:8000]}\n\nUser Question:\n{user_input}'})
@@ -192,6 +198,8 @@ CRITICAL FORMATTING RULES:
             self.ai_display.append('You can try changing the AI model in the settings tab.\n\n')
         else:
             self.ai_display.append(f'❌ Error: {error_msg}\n\n')
+        scrollbar = self.ai_display.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
         
         if self.chat_data.chats:
             self.chat_data.chats.pop()

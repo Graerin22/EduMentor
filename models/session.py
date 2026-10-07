@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 
 @dataclass
@@ -36,7 +37,9 @@ class QuizData:
     feedbacks: list = field(default_factory=list)
 
     def quiz_length(self):
-        return len(self.quiz)
+        if self.quiz:
+            raw_quiz = json.loads(self.quiz[1]['parts'])
+            return len(raw_quiz)
 
 @dataclass
 class TeachbackData:
