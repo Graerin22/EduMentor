@@ -221,7 +221,7 @@ The first launch creates `sessions.db` in the project root. No migrations are ne
 | `ChatData`, `QuizData` | `models/session.py` | Data classes for each kind of record. |
 | `AIWorker`, `QuizWorker`, `DocumentParser` | `core/` | `QThread` subclasses - each runs one long task off the UI thread and reports via Qt signals. |
 | `ChatWidget`, `QuizWidget`, `HistoryWidget`, `SettingsWidget` | `gui/pages/` | Each is a `QWidget` subclass responsible for one tab. |
-| `MainWindow` | `gui/main_window.py` | `QMainWindow` subclass that composes the tabs and relays events. |
+| `MainWindow` | `gui/main/main_window.py` | `QMainWindow` subclass that composes the tabs and relays events. |
 | `SlidingStackedWidget` | `utils/sliding_stack.py` | `QStackedWidget` subclass adding animated transitions. |
 
 ### Encapsulation
