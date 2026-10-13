@@ -1,12 +1,12 @@
 # EduMentor - AI Teaching Assistant
 
-A desktop application that turns any study session which can be a document, a conversation, or both into an interactive AI-powered learning.
+A desktop application that turns any study session into an interactive AI-powered learning.
 
 ---
 
 ## Project Description
 
-**EduMentor** is a Python desktop application built with PyQt6 that lets students chat with an AI tutor, generate custom multiple-choice quizzes from whatever they're studying, and track every session in a searchable history.
+**EduMentor** is a Python desktop application built with PyQt6 that lets students chat with an AI tutor, generate custom multiple-choice quizzes from whatever they're studying, and track every session in their history.
 
 **The problem it addresses:** Students often study by passively reading notes, highlighting, re-reading. Research shows that *active recall* (quizzing yourself) produces far better retention than passive review, but writing your own quiz questions is tedious and most students skip it. EduMentor automates the whole loop: talk to the AI about a topic or upload a document, then let the AI generate a quiz on that material.
 
@@ -33,7 +33,7 @@ A desktop application that turns any study session which can be a document, a co
 | **Encrypted API Key** | The Gemini API key is encrypted with a key derived from the user's password (Fernet / AES-128). It can only be decrypted by re-entering the correct password. |
 | **Chat-First AI Tutor** | Ask anything without uploading a document. The AI asks focused follow-up questions to identify topic, level, and goal before it explains. |
 | **Grounded Answers (when a document exists)** | Once a document is uploaded, answers are restricted to its contents. If the answer isn't in the document, the AI says so. |
-| **Quiz Generator** | Generate 1–20 multiple-choice questions from the current session — document, chat, or both. Each question has a confidence slider (1–5) so the AI can calibrate its feedback tone. |
+| **Quiz Generator** | Generate 1–20 multiple-choice questions from the current session - document, chat, or both. Each question has a confidence slider (1–5) so the AI can calibrate its feedback tone. |
 | **Per-Question Feedback** | After every submitted answer, the AI explains the correct choice and addresses the student's stated confidence (e.g. high-confidence wrong answers get more detail). |
 | **Blind Spot Report** | After finishing a quiz, the AI analyzes the wrong answers and produces a study plan with concrete action steps and resource recommendations. |
 | **Session History** | Tree view of every session with its chat and quizzes. Load any past item with a double-click. |
@@ -112,20 +112,20 @@ EduMentor/
 │
 └── utils/
     ├── config.py                # Path helpers
-    └── sliding_stack.py         # SlidingStackedWidget — animated page transitions
+    └── sliding_stack.py         # SlidingStackedWidget - animated page transitions
 ```
 
 ### Purpose of each major file
 
 | File | Responsibility |
 |---|---|
-| `main.py` | Boots the Qt app, instantiates `Database`, opens the login window. |
+| `EduMentor.py` | Boots the Qt app, instantiates `Database`, opens the login window. |
 | `core/database.py` | Owns the SQLite connection; implements every Create/Read/Update/Delete operation and password/API-key cryptography. |
 | `core/ai_engine.py` | `AIWorker(QThread)` - takes a message list, calls the model, emits `finished(str)` or `error(str)`. |
 | `core/quiz_generator.py` | `QuizWorker(QThread)` - like `AIWorker` but the system prompt forces strict JSON output. |
 | `core/document_parser.py` | `DocumentParser(QThread)` - dispatches to the right extractor based on file extension. |
-| `gui/main_window.py` | Central hub: holds all widgets, connects signals between them, relays logout. |
-| `models/session.py` | Data classes shared between DB and widgets — the objects passed around everywhere. |
+| `gui/main/main_window.py` | Central hub: holds all widgets, connects signals between them, relays logout. |
+| `models/session.py` | Data classes shared between DB and widgets - the objects passed around everywhere. |
 | `utils/sliding_stack.py` | Custom `QStackedWidget` that animates transitions between quiz slides. |
 
 ---
@@ -136,7 +136,7 @@ EduMentor/
 
 - Python **3.10 or newer**
 - pip
-- A Google Gemini API key — free tier available at <https://aistudio.google.com/app/apikey>
+- A Google Gemini API key - free tier available at <https://aistudio.google.com/app/apikey>
 
 ### 2. Clone the repository
 
@@ -181,15 +181,23 @@ The first launch creates `sessions.db` in the project root. No migrations are ne
 
 ## How to Use the System
 
-### Basic flow
+### Basic flow (no document needed)
 
-1. **Upload a document** - On the *Mentor* tab, click **Upload** and choose a PDF, DOCX, PPTX, or CSV. The extracted text appears in the left pane.
-2. **Ask questions** - Type into the input box and press **Send**. The AI answers strictly from the document.
-3. **Save the session** - Click **Save**. This creates a session record with your chat history.
-4. **Take a quiz** - Go to the *Quiz* tab, enter a question count (1–20), click **Generate**. Answer each question, set your confidence with the slider, and submit. Feedback appears under the question.
-5. **Get a study plan** - After the last question, click **Blind Spot Report**. The AI identifies weak areas and suggests resources.
-6. **Revisit anything** - Open the *History* tab. Double-click any session, chat, or quiz to reload it.
-7. **Manage your account** - The *Settings* tab lets you rename yourself, change your password, rotate your API key, or delete the account.
+1. **Ask a question** - On the *Mentor* tab, type e.g. *"I want to learn recursion."* Press Send.
+2. **Answer the AI's follow-ups** - The AI asks about your level, your goal, and any specifics. Reply naturally.
+3. **Learn** - Once intent is clear, the AI explains the topic.
+4. **Save the session** - Click **Save**. This creates a session record with your chat history.
+5. **Quiz yourself** - Go to the *Quiz* tab, choose a question count (1–20), click **Generate**. The quiz is built from the conversation.
+6. **Answer each question** - Pick an option, set your confidence with the slider, submit. Feedback appears under the question.
+7. **Get a study plan** - After the last question, click **Blind Spot Report**. The AI identifies weak areas and suggests resources.
+8. **Revisit anything** - Open the *History* tab. Double-click any session, chat, or quiz to reload it.
+9. **Manage your account** - The *Settings* tab lets you rename yourself, change your password, rotate your API key, or delete the account.
+
+### If you also want to upload a document
+
+1. On the *Mentor* tab, click **Upload** and choose a PDF, DOCX, PPTX, or CSV.
+2. The extracted text appears in the left pane. From this point on, the AI answers strictly from the document.
+3. Quizzes generated afterwards will be based on **both** the recent document and the recent conversation, giving you questions that cover areas you might not have asked about.
 
 ### Keyboard / UI shortcuts
 
@@ -240,46 +248,60 @@ The first launch creates `sessions.db` in the project root. No migrations are ne
 
 ## Database
 
-The application uses a single SQLite file (`sessions.db`) with five tables.
+The application uses a single SQLite file (`sessions.db`) with four tables.
 
-### Schema
+## Schema
 
-```
-user
-├── user_id           INTEGER  PK
-├── username          TEXT     UNIQUE
-├── password_hash     TEXT
-├── salt              TEXT
-├── encrypted_api_key TEXT
-├── created_at        TEXT
-└── last_login        TEXT
+### Table: `user`
+Stores one row per registered account. Passwords are salted and hashed; the API key is encrypted with a key derived from the password hash and salt.
 
-session
-├── session_id        INTEGER  PK
-├── user_id           INTEGER  FK → user(user_id) ON DELETE CASCADE
-├── timestamp         TEXT
-├── session_name      TEXT     UNIQUE
-└── is_current        INTEGER  0/1
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `user_id` | INTEGER | PK, AUTOINCREMENT | Surrogate primary key. |
+| `username` | TEXT | UNIQUE, NOT NULL | Display name and login name. |
+| `password_hash` | TEXT | NOT NULL | SHA-256 of `password + salt`, hex-encoded. |
+| `salt` | TEXT | NOT NULL | 16-byte random salt, hex-encoded. |
+| `encrypted_api_key` | TEXT | NULLABLE | Fernet-encrypted Gemini API key. |
+| `created_at` | TEXT | NULLABLE | Human-readable date string when the account was created. |
+| `last_login` | TEXT | NULLABLE | Updated on every successful login. |
 
-chat_data
-├── chat_id           INTEGER  PK
-├── session_id        INTEGER  FK → session(session_id) ON DELETE CASCADE
-├── timestamp         TEXT
-├── chat_name         TEXT     UNIQUE
-├── filename          TEXT
-├── document_text     TEXT
-└── chats             TEXT     (JSON array)
+### Table: `session`
+Represents one study session - the top-level container for one chat and any number of quizzes.
 
-quiz_data
-├── quiz_id           INTEGER  PK
-├── session_id        INTEGER  FK → session(session_id) ON DELETE CASCADE
-├── timestamp         TEXT
-├── quiz_name         TEXT     UNIQUE
-├── quiz_score        INTEGER
-├── quiz              TEXT     (JSON array of chat turns)
-├── quiz_result       TEXT
-└── feedbacks         TEXT 
-```
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `session_id` | INTEGER | PK, AUTOINCREMENT | Surrogate primary key. |
+| `user_id` | INTEGER | FK → `user(user_id)`, NOT NULL, CASCADE | Owning account. |
+| `timestamp` | TEXT | NULLABLE | Human-readable last-modified string (e.g. `October 13, 2026 at 03:42 PM`). |
+| `session_name` | TEXT | UNIQUE, NOT NULL | Auto-generated name (`session_YYYY-MM-DD_HHMMSS`). |
+| `is_current` | INTEGER | CHECK IN (0, 1), DEFAULT 0 | Marks the active session for the logged-in user. |
+
+### Table: `chat_data`
+The conversation attached to a session. Exactly one per session (enforced by the `1:1` relationship logic in the DB layer).
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `chat_id` | INTEGER | PK, AUTOINCREMENT | Surrogate primary key. |
+| `session_id` | INTEGER | FK → `session(session_id)`, NOT NULL, CASCADE | Parent session. |
+| `timestamp` | TEXT | NULLABLE | Human-readable last-modified string. |
+| `chat_name` | TEXT | UNIQUE, NOT NULL | Auto-generated (`chat_<stem>-<HHMMSS>`); stem is `no-doc` when no file was uploaded. |
+| `filename` | TEXT | NULLABLE | Original uploaded filename, or NULL if no document was uploaded. |
+| `document_text` | TEXT | NULLABLE | Extracted document text, or NULL if no document was uploaded. |
+| `chats` | TEXT | NOT NULL | JSON array of `{role, parts}` turns - the full conversation. |
+
+### Table: `quiz_data`
+Zero or more quizzes per session. Each row stores the full interaction log for one quiz attempt, including the question set, the user's answers, the per-question feedback, and the score.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `quiz_id` | INTEGER | PK, AUTOINCREMENT | Surrogate primary key. |
+| `session_id` | INTEGER | FK → `session(session_id)`, NOT NULL, CASCADE | Parent session. |
+| `timestamp` | TEXT | NULLABLE | Human-readable creation/last-modified string. |
+| `quiz_name` | TEXT | UNIQUE, NOT NULL | Auto-generated (`quiz_YYYY-MM-DD_HHMMSS`). |
+| `quiz_score` | INTEGER | NULLABLE | Number of correct answers so far. |
+| `quiz` | TEXT | NOT NULL | JSON array of `{role, parts}` turns - the full AI conversation that produced and graded the quiz. |
+| `quiz_result` | TEXT | NOT NULL | JSON array of `{ "No.N": [chosen_answer, "Correct"\|"Wrong"] }` entries, one per answered question. |
+| `feedbacks` | TEXT | NOT NULL | JSON array of per-question AI feedback strings. |
 
 ### Relationships
 
@@ -336,7 +358,7 @@ quiz_data
 
 | # | Test | Steps | Expected Result | Actual Result |
 |---|---|---|---|---|
-| 1 | Register a new user | Login → Register → fill form → submit | Account created, auto-login to Mentor tab | Pass |
+| 1 | Register a new user | Login → Register → fill form → submit | Account created, login to Mentor tab | Pass |
 | 2 | Reject duplicate username | Register with an existing username | Warning: "Username already exists." | Pass |
 | 3 | Wrong password | Log in with incorrect password | Warning: "Incorrect password." | Pass |
 | 4 | Upload a PDF | Mentor tab → Upload → select a PDF | Extracted text appears; Send enabled | Pass |
