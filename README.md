@@ -1,27 +1,27 @@
 # EduMentor - AI Teaching Assistant
 
-A desktop application that turns any study document into an interactive AI-powered learning session.
+A desktop application that turns any study session which can be a document, a conversation, or both into an interactive AI-powered learning.
 
 ---
 
 ## Project Description
 
-**EduMentor** is a Python desktop application built with PyQt6 that lets students upload a study document (PDF, DOCX, PPTX, or CSV), chat with an AI tutor about its contents, generate custom multiple-choice quizzes, and practice explaining concepts back to the AI using the Feynman Technique.
+**EduMentor** is a Python desktop application built with PyQt6 that lets students chat with an AI tutor, generate custom multiple-choice quizzes from whatever they're studying, and track every session in a searchable history.
 
-**The problem it addresses:** Students often study by passively reading notes, highlighting, re-reading. Research shows that *active recall* (quizzing yourself) and *self-explanation* (teaching the material back) produce far better retention than passive review, but building quizzes and finding someone to explain to are both time-consuming. EduMentor automates both: it reads the student's own material and generates quizzes and feedback on demand, so active study becomes the default rather than an extra step.
+**The problem it addresses:** Students often study by passively reading notes, highlighting, re-reading. Research shows that *active recall* (quizzing yourself) produces far better retention than passive review, but writing your own quiz questions is tedious and most students skip it. EduMentor automates the whole loop: talk to the AI about a topic or upload a document, then let the AI generate a quiz on that material.
 
-**Why it's different:** Everything is grounded in the student's *own* document. The AI tutor only answers based on the uploaded source, quizzes only cover that material, and teach-back feedback checks the student's explanation against the same source. No hallucinated content from unrelated topics.
+**Why it's different:** The system does **not** require a document to be useful. A student can open the app, type "I want to learn recursion," and the AI will ask follow-up questions to figure out their level and goal. Only then does it explain. Quizzes are built from whatever context exists like the uploaded document, the conversation, or both, so the tool is useful from the very first message.
 
 ---
 
 ## Project Objectives
 
-1. Provide a study tool that keeps the student's documents and history on their own machine.
-2. Convert static study material into active-recall practice (quizzes, teach-back).
-3. Offer per-question AI feedback that adapts to the student's stated confidence level.
-4. Track progress across multiple study sessions so students can revisit past quizzes and teach-backs.
-5. Keep API keys and passwords encrypted at rest — never stored in plaintext.
-6. Demonstrate a clean separation of concerns between GUI, business logic, and persistence.
+1. To provide a study tool that keeps the student's documents and history on their own machine.
+2. To convert static study material into active-recall practice.
+3. To offer per-question AI feedback that adapts to the student's stated confidence level.
+4. To track progress across multiple study sessions so students can revisit past quizzes.
+5. To keep API keys and passwords encrypted at rest, never stored in plaintext.
+6. To demonstrate a clean separation of concerns between GUI, business logic, and persistence.
 
 ---
 
@@ -29,16 +29,16 @@ A desktop application that turns any study document into an interactive AI-power
 
 | Feature | Description |
 |---|---|
-| **Document Upload** | Load `.pdf`, `.docx`, `.pptx`, or `.csv` files. Text is extracted asynchronously so the UI stays responsive. |
-| **AI Chat (Mentor tab)** | Ask questions about the uploaded document. The AI answers only from the document and formats math as plain-text Unicode (no LaTeX). |
-| **Quiz Generator** | Generate 1–20 multiple-choice questions from the document. Each question has a confidence slider (1–5) so the AI can calibrate its feedback tone. |
-| **Blind Spot Report** | After finishing a quiz, the AI analyzes the wrong answers and produces a study plan with specific resources. |
-| **Teach-Back (Feynman)** | Student picks a topic and explains it in their own words. The AI scores clarity, accuracy, and use of analogies, then lists strengths and gaps. |
-| **Session History** | Tree view of every session with its chat, quizzes, and teach-backs. Load any past item with a double-click. |
-| **Rename / Delete** | Any session, chat, quiz, or teach-back can be renamed or deleted from the History tab. |
 | **User Accounts** | Register and log in locally. Passwords are SHA-256 hashed with a per-user salt. |
-| **Encrypted API Key** | The Google Gemini API key is encrypted with a key derived from the user's hashed pasword (Fernet / AES-128). It can only be decrypted by re-entering the correct password. |
-| **Settings** | Change username, password, API key, test a key before saving, and delete the account. |
+| **Encrypted API Key** | The Gemini API key is encrypted with a key derived from the user's password (Fernet / AES-128). It can only be decrypted by re-entering the correct password. |
+| **Chat-First AI Tutor** | Ask anything without uploading a document. The AI asks focused follow-up questions to identify topic, level, and goal before it explains. |
+| **Grounded Answers (when a document exists)** | Once a document is uploaded, answers are restricted to its contents. If the answer isn't in the document, the AI says so. |
+| **Quiz Generator** | Generate 1–20 multiple-choice questions from the current session — document, chat, or both. Each question has a confidence slider (1–5) so the AI can calibrate its feedback tone. |
+| **Per-Question Feedback** | After every submitted answer, the AI explains the correct choice and addresses the student's stated confidence (e.g. high-confidence wrong answers get more detail). |
+| **Blind Spot Report** | After finishing a quiz, the AI analyzes the wrong answers and produces a study plan with concrete action steps and resource recommendations. |
+| **Session History** | Tree view of every session with its chat and quizzes. Load any past item with a double-click. |
+| **Rename / Delete** | Any session, chat, or quiz can be renamed or deleted from the History tab. |
+| **Settings** | Change username, password, API key; test a key before saving; delete the account. |
 
 ---
 
@@ -93,13 +93,12 @@ EduMentor/
 │       ├── register_widget.py   # Register tab
 │       ├── chat_widget.py       # Mentor tab
 │       ├── quiz_widget.py       # Quiz tab
-│       ├── teach_widget.py      # Teach-back tab
 │       ├── history_widget.py    # History tab
 │       └── settings_widget.py   # Settings tab
 │
 ├── models/
 │   ├── user.py                  # User dataclass
-│   └── session.py               # Session, ChatData, QuizData, TeachbackData
+│   └── session.py               # Session, ChatData, QuizData
 │
 ├── ui_designs/
 │   ├── login_widget.ui
@@ -108,7 +107,6 @@ EduMentor/
 │   ├── chat_widget.ui
 │   ├── quiz_widget.ui
 │   ├── question_widget.ui       # Question slides (loaded N times)
-│   ├── teach_widget.ui
 │   ├── history_widget.ui
 │   └── settings_widget.ui
 │
@@ -190,9 +188,8 @@ The first launch creates `sessions.db` in the project root. No migrations are ne
 3. **Save the session** - Click **Save**. This creates a session record with your chat history.
 4. **Take a quiz** - Go to the *Quiz* tab, enter a question count (1–20), click **Generate**. Answer each question, set your confidence with the slider, and submit. Feedback appears under the question.
 5. **Get a study plan** - After the last question, click **Blind Spot Report**. The AI identifies weak areas and suggests resources.
-6. **Practice teach-back** - On the *Teach-back* tab, enter a topic and explain it in your own words. The AI scores it using the Feynman criteria.
-7. **Revisit anything** - Open the *History* tab. Double-click any session, chat, quiz, or teach-back to reload it.
-8. **Manage your account** - The *Settings* tab lets you rename yourself, change your password, rotate your API key, or delete the account.
+6. **Revisit anything** - Open the *History* tab. Double-click any session, chat, or quiz to reload it.
+7. **Manage your account** - The *Settings* tab lets you rename yourself, change your password, rotate your API key, or delete the account.
 
 ### Keyboard / UI shortcuts
 
@@ -212,10 +209,10 @@ The first launch creates `sessions.db` in the project root. No migrations are ne
 |---|---|---|
 | `Database` | `core/database.py` | Data-access layer. Every SQL statement lives here. |
 | `User` | `models/user.py` | Value object for the authenticated user. |
-| `Session` | `models/session.py` | Aggregate root - holds one `ChatData`, a list of `QuizData`, and a list of `TeachbackData`. |
-| `ChatData`, `QuizData`, `TeachbackData` | `models/session.py` | Data classes for each kind of record. |
+| `Session` | `models/session.py` | Aggregate root - holds one `ChatData`, and a list of `QuizData`. |
+| `ChatData`, `QuizData` | `models/session.py` | Data classes for each kind of record. |
 | `AIWorker`, `QuizWorker`, `DocumentParser` | `core/` | `QThread` subclasses - each runs one long task off the UI thread and reports via Qt signals. |
-| `ChatWidget`, `QuizWidget`, `TeachWidget`, `HistoryWidget`, `SettingsWidget` | `gui/pages/` | Each is a `QWidget` subclass responsible for one tab. |
+| `ChatWidget`, `QuizWidget`, `HistoryWidget`, `SettingsWidget` | `gui/pages/` | Each is a `QWidget` subclass responsible for one tab. |
 | `MainWindow` | `gui/main_window.py` | `QMainWindow` subclass that composes the tabs and relays events. |
 | `SlidingStackedWidget` | `utils/sliding_stack.py` | `QStackedWidget` subclass adding animated transitions. |
 
@@ -231,12 +228,12 @@ The first launch creates `sessions.db` in the project root. No migrations are ne
 - Every GUI class extends `QWidget` or `QMainWindow`, inheriting the entire Qt event system, layout machinery, and signal/slot framework.
 - `AIWorker`, `QuizWorker`, and `DocumentParser` all extend `QThread`, inheriting `start()`, `finished`, `error`, and the run-loop integration.
 - `SlidingStackedWidget` extends `QStackedWidget`, adding animation on top of the standard page-switching behaviour.
-- Data classes (`ChatData`, `QuizData`, `TeachbackData`) are plain Python classes used uniformly wherever records move between the DB and the UI.
+- Data classes (`ChatData`, `QuizData`) are plain Python classes used uniformly wherever records move between the DB and the UI.
 
 ### Polymorphism
 
-- `MainWindow.on_session_load_requested(session, tab_key, item_idx)` calls `load_session(session, item_idx)` on each of `ChatWidget`, `QuizWidget`, and `TeachWidget` without knowing which type it's calling. Each widget implements its own version of that method for its own record type.
-- `HistoryWidget.request_load_selected` branches on `isinstance(self.selected_item, ...)` to decide which record to load - the same generic tree item can carry a `Session`, `ChatData`, `QuizData`, or `TeachbackData`, and the *behaviour* differs based on the object type, not the code path.
+- `MainWindow.on_session_load_requested(session, tab_key, item_idx)` calls `load_session(session, item_idx)` on each of `ChatWidget` and `QuizWidget` without knowing which type it's calling. Each widget implements its own version of that method for its own record type.
+- `HistoryWidget.request_load_selected` branches on `isinstance(self.selected_item, ...)` to decide which record to load - the same generic tree item can carry a `Session`, `ChatData`, or a `QuizData`, and the *behaviour* differs based on the object type, not the code path.
 - `AIWorker` and `QuizWorker` share the same `finished` / `error` signal interface, so widget code that connects to them is identical regardless of which worker is running.
 
 ---
@@ -282,22 +279,13 @@ quiz_data
 ├── quiz              TEXT     (JSON array of chat turns)
 ├── quiz_result       TEXT
 └── feedbacks         TEXT 
-
-teachback_data
-├── teachback_id      INTEGER  PK
-├── session_id        INTEGER  FK → session(session_id) ON DELETE CASCADE
-├── timestamp         TEXT
-├── teachback_name    TEXT     UNIQUE
-├── topic             TEXT
-├── explanation       TEXT
-└── teachback         TEXT     (JSON array of chat turns)
 ```
 
 ### Relationships
 
 - One **user** → many **sessions**.
-- One **session** → one **chat_data**, many **quiz_data**, many **teachback_data**.
-- Deleting a session cascades to its chat, quizzes, and teach-backs.
+- One **session** → one **chat_data**, many **quiz_data**.
+- Deleting a session cascades to its chat and quizzes.
 
 ### Major database operations
 
@@ -311,12 +299,10 @@ teachback_data
 | **Update chat** | `update_chat_session` | Mentor tab |
 | **Create quiz** | `save_quiz_session` | Quiz tab |
 | **Update quiz** | `update_quiz_session` | Quiz tab |
-| **Create teach-back** | `save_teachback_session` | Teach-back tab |
-| **Update teach-back** | `update_teachback_session` | Teach-back tab |
 | **Read all sessions** | `get_all_sessions` | History tab |
 | **Mark active session** | `set_current_session` | Save, history load |
-| **Rename any record** | `rename_session`, `rename_chat_data`, `rename_quiz_data`, `rename_teachback_data` | History tab |
-| **Delete any record** | `delete_session`, `delete_chat_data`, `delete_quiz_data`, `delete_teachback_data` | History tab |
+| **Rename any record** | `rename_session`, `rename_chat_data`, `rename_quiz_data` | History tab |
+| **Delete any record** | `delete_session`, `delete_chat_data`, `delete_quiz_data` | History tab |
 
 ---
 
@@ -334,15 +320,11 @@ teachback_data
 `screenshots/03_quiz_tab.png`
 *One multiple-choice question with the confidence slider. The progress and score labels update in real time.*
 
-### 4. Teach-Back Tab
-`screenshots/04_teachback_tab.png`
-*The Feynman-technique evaluation, with scores for clarity, accuracy, and analogies.*
-
-### 5. History Tab
+### 4. History Tab
 `screenshots/05_history_tab.png`
-*The session tree. Sessions expand into chat, quizzes, and teach-backs. Any item can be loaded, renamed, or deleted.*
+*The session tree. Sessions expand into chat and quizzes. Any item can be loaded, renamed, or deleted.*
 
-### 6. Settings Tab
+### 5. Settings Tab
 `screenshots/06_settings_tab.png`
 *Account management: username, password, API key testing, and account deletion.*
 
@@ -363,16 +345,15 @@ teachback_data
 | 7 | Generate a quiz | Quiz tab → 5 questions → Generate | 5 question slides appear | Pass |
 | 8 | Submit a wrong answer | Select wrong option → Submit | Feedback shows correct explanation | Pass |
 | 9 | Blind Spot Report | Finish quiz → Blind Spot Report | Structured study plan appears | Pass |
-| 10 | Teach-back | Enter topic + explanation → Submit | Scores + strengths + gaps shown | Pass |
-| 11 | Load a past quiz | History → double-click a quiz | Quiz reloads into Quiz tab | Pass |
-| 12 | Rename a session | History → select → Rename | Name updates in DB and tree | Pass |
-| 13 | Delete a session | History → select → Delete → Yes | Row + children removed from DB | Pass |
-| 14 | Wrong API key | Settings → Test Key with a bad key | Status shows "❌ Invalid key!" | Pass |
-| 15 | Correct API key | Settings → Test Key with a valid key | Status shows "✅ Key is valid!" | Pass |
-| 16 | Persistence across restart | Close app, reopen, log in | History shows all prior sessions | Pass |
+| 10 | Load a past quiz | History → double-click a quiz | Quiz reloads into Quiz tab | Pass |
+| 11 | Rename a session | History → select → Rename | Name updates in DB and tree | Pass |
+| 12 | Delete a session | History → select → Delete → Yes | Row + children removed from DB | Pass |
+| 13 | Wrong API key | Settings → Test Key with a bad key | Status shows "❌ Invalid key!" | Pass |
+| 14 | Correct API key | Settings → Test Key with a valid key | Status shows "✅ Key is valid!" | Pass |
+| 15 | Persistence across restart | Close app, reopen, log in | History shows all prior sessions | Pass |
 
 ## Known Issues / Limitations
-- **`save_quiz_session` / `save_teachback_session` require an existing current session.** A quiz cannot be saved before a chat session exists. A future version should auto-create a session on first save.
+- **`save_quiz_session` require an existing current session.** A quiz cannot be saved before a chat session exists. A future version should auto-create a session on first save.
 - **No cloud sync.** Sessions and API keys live only on the local machine.
 - **SQLite concurrency.** If the app is opened twice from the same directory, the second instance can lock the DB during writes. A lock file or a single-instance guard is not yet implemented.
 - **No image extraction.** PDFs containing scanned images (no text layer) parse as empty. OCR is not implemented.

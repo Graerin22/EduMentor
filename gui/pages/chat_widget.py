@@ -32,7 +32,7 @@ class ChatWidget(QWidget):
         self.send_btn.clicked.connect(self.send_message)
 
     def create_new_chat(self, is_deleted=False):
-        if not is_deleted and self.quiz_data.quiz:
+        if not is_deleted and self.chat_data.chats:
             reply = QMessageBox.question(self, 'New Chat',
                                          'Start a new chat?',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -46,7 +46,7 @@ class ChatWidget(QWidget):
                                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                               QMessageBox.StandardButton.No)
                 if save_reply == QMessageBox.StandardButton.Yes:
-                    self.save_quiz_session(True)       
+                    self.save_chat_session(True)       
 
         self.current_session = None
         self.chat_data = ChatData(chat_id=-1, session_id=-1,
@@ -61,10 +61,9 @@ class ChatWidget(QWidget):
         self.input_text.clear()
 
     def save_chat_session(self, silent=False):
-        if not self.chat_data.chats or not self.chat_data.document_text:
+        if not self.chat_data.chats:
             if not silent:
-                QMessageBox.warning(self, 'Save Failed',
-                                    'Upload a document and send a message first.')
+                QMessageBox.warning(self, 'Save Failed', 'Chat with the AI first.')
             return
 
         timestamp = datetime.now()
@@ -119,14 +118,10 @@ class ChatWidget(QWidget):
         for msg in self.chat_data.chats:
             if msg['role'] == 'user':
                 parts = msg['parts']
-                if 'User Question:' in parts:
-                    parts = parts.split('User Question:', 1)[1].strip()
-            
                 cursor.insertMarkdown("### 👤 You:&nbsp;\n")
                 cursor.insertText(f'{parts}\n\n')
             else:
                 cursor.insertMarkdown("### 🧠 AI Tutor:&nbsp;\n\n")
-
                 cursor.insertMarkdown(msg['parts'])
                 cursor.insertBlock()
                 cursor.setBlockFormat(QTextBlockFormat())
@@ -136,17 +131,38 @@ class ChatWidget(QWidget):
         scroll_bar = self.ai_display.verticalScrollBar()
         scroll_bar.setValue(scroll_bar.maximum())
 
+    def _build_system_prompt(self):
+        base_format_rules = """
+CRITICAL FORMATTING RULES:
+1. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
+2. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
+"""
+        if self.chat_data.document_text:
+            return f"""Role: AI Tutor
+The user has provided a source document (filename: {self.chat_data.filename}).
+Answer questions strictly from that document. If a question cannot be
+answered from the document, say so, then offer to discuss it generally.
+
+Source document:
+{self.chat_data.document_text[:8000]}
+{base_format_rules}
+"""
+        return f"""Role: AI Tutor
+No source document has been provided. Your job is to figure out what the
+user wants to learn. Ask short, focused follow-up questions (one or two
+at a time) to identify: (a) the topic, (b) their familiarity level,
+(c) their goal - understand, quiz, prepare for an exam.
+
+Once intent is clear, offer the next concrete step: explain, quiz, or practice.
+{base_format_rules}
+"""
+
     def send_message(self):
         user_input = self.input_text.toPlainText().strip()
         if not user_input:
             return
+        
         self.input_text.clear()
-        if not self.chat_data.document_text:
-            QMessageBox.warning(self, 'Send Failed',
-                                'Upload a document first.')
-            self.send_btn.setEnabled(True)
-            return
-
         self.send_btn.setEnabled(False)
         self.newchat_btn.setEnabled(False)
         self.save_btn.setEnabled(False)
@@ -157,19 +173,10 @@ class ChatWidget(QWidget):
         cursor.insertText(f'{user_input}\n')
         self.ai_display.setTextCursor(cursor)
 
-        self.system_prompt = """Role: AI Tutor
-Explain the concepts from the provided document using clear, universal language and practical analogies.
-CRITICAL FORMATTING RULES:
-1. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
-2. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
-"""
-        
-        if not self.chat_data.chats:
-            self.chat_data.chats.append({'role':'user', 'parts':f'Source Doc:\n{self.chat_data.document_text[:8000]}\n\nUser Question:\n{user_input}'})
-        else:
-            self.chat_data.chats.append({'role':'user', 'parts':user_input})
+        self.chat_data.chats.append({'role':'user', 'parts':user_input})
 
-        self.ai_worker = AIWorker(self.chat_data.chats, self.system_prompt)
+        system_prompt = self._build_system_prompt()
+        self.ai_worker = AIWorker(self.chat_data.chats, system_prompt)
         self.ai_worker.finished.connect(self.on_ai_response)
         self.ai_worker.error.connect(self.on_ai_error)
         self.ai_worker.start()
@@ -233,8 +240,6 @@ CRITICAL FORMATTING RULES:
         self.file_display.verticalScrollBar().setValue(0)
         
         self.send_btn.setEnabled(True)
-        self.upload_btn.setEnabled(False)
-
 
     def on_parser_error(self, error_msg):
         self.file_display.append(f'❌ Error loading files: {error_msg}\n\n')

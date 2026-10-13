@@ -10,7 +10,6 @@ class Session:
     chat_data: ChatData
     is_current: bool = False
     quiz_datas: list[QuizData] = field(default_factory=list)
-    teachback_datas: list[TeachbackData] = field(default_factory=list)
 
 @dataclass
 class ChatData:
@@ -40,13 +39,3 @@ class QuizData:
         if self.quiz:
             raw_quiz = json.loads(self.quiz[1]['parts'])
             return len(raw_quiz)
-
-@dataclass
-class TeachbackData:
-    teachback_id: int
-    session_id: int
-    timestamp: str
-    teachback_name: str
-    topic: str
-    explanation: str
-    teachback: list[dict] = field(default_factory=list)

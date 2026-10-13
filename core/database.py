@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from cryptography.fernet import Fernet
 from models.user import User
-from models.session import Session, ChatData, QuizData, TeachbackData
+from models.session import Session, ChatData, QuizData
 from utils.config import set_api_key, set_model
 
 class Database:
@@ -73,19 +73,6 @@ class Database:
             )
         """)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS teachback_data (
-                teachback_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id INTEGER NOT NULL,
-                timestamp TEXT,
-                teachback_name TEXT UNIQUE NOT NULL,
-                topic TEXT,
-                explanation TEXT,
-                teachback TEXT,
-                FOREIGN KEY (session_id) REFERENCES session(session_id) ON DELETE CASCADE
-            )
-        """)
-
         conn.commit()
         conn.close()
 
@@ -106,7 +93,7 @@ class Database:
         )
         new_session_id = cursor.lastrowid
 
-        chat_name = f"chat_{chat_obj.filename.split('.')[0]}-{timestamp.strftime('%H%M%S')}"
+        chat_name = f"chat_{timestamp.strftime('%H%M%S')}"
         cursor.execute("""
             INSERT INTO chat_data
             (session_id, timestamp, chat_name, filename, document_text, chats)
@@ -224,65 +211,6 @@ class Database:
         finally:
             conn.close()
 
-    def save_teachback_session(self, timestamp, session_obj: Session, teachback_obj: TeachbackData) -> None:
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        str_timestamp = timestamp.strftime('%B %d, %Y at %I:%M %p')
-        new_teachback_name = f"teachback_{timestamp.strftime('%Y-%m-%d_%H%M%S')}"
-        cursor.execute("""
-            INSERT INTO teachback_data
-            (session_id, timestamp, teachback_name, 
-             topic, explanation, teachback)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (session_obj.session_id,
-              str_timestamp,
-              new_teachback_name,
-              teachback_obj.topic,
-              teachback_obj.explanation,
-              json.dumps(teachback_obj.teachback)))
-        new_teachback_id = cursor.lastrowid
-
-        conn.commit()
-        conn.close()
-
-        teachback_obj.teachback_id = new_teachback_id
-        teachback_obj.session_id = session_obj.session_id
-        teachback_obj.timestamp = str_timestamp
-        teachback_obj.teachback_name_name = new_teachback_name
-
-        session_obj.teachback_datas.append(teachback_obj)
-
-    def update_teachback_session(self, timestamp, session_obj: Session, teachback_obj: TeachbackData) -> tuple[bool, str]:
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            cursor.execute("""
-                UPDATE teachback_data
-                SET timestamp = ?, topic = ?,
-                    explanation = ?, teachback = ?
-                WHERE session_id = ? and teachback_id = ?
-            """, (timestamp, 
-                  teachback_obj.topic,
-                  teachback_obj.explanation,
-                  json.dumps(teachback_obj.teachback),
-                  session_obj.session_id,
-                  teachback_obj.teachback_id)
-            )
-            cursor.execute("UPDATE session SET timestamp = ? WHERE user_id = ? AND session_id = ?",
-                           (timestamp, session_obj.user_id, session_obj.session_id))
-            
-            conn.commit()
-            teachback_obj.timestamp = timestamp
-            session_obj.timestamp = timestamp
-            
-            return True, ''
-        except sqlite3.Error as e:
-            return False, str(e)
-        finally:
-            conn.close()
-
     def set_current_session(self, session: Session) -> None:
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -338,23 +266,6 @@ class Database:
                                                        quiz_result=json.loads(q_row[5]),
                                                        feedbacks=json.loads(q_row[6])
                                                        ))
-
-            cursor.execute("""
-                SELECT teachback_id, timestamp, teachback_name,
-                        topic, explanation, teachback
-                FROM teachback_data
-                WHERE session_id = ?
-                ORDER BY timestamp DESC
-            """, (s_id,))
-            for t_row in cursor.fetchall():
-                session_obj.teachback_datas.append(TeachbackData(teachback_id=t_row[0],
-                                                                 session_id=s_id,
-                                                                 timestamp=t_row[1],
-                                                                 teachback_name=t_row[2],
-                                                                 topic=t_row[3],
-                                                                 explanation=t_row[4],
-                                                                 teachback=json.loads(t_row[5])
-                                                                 ))
 
             sessions.append(session_obj)
 
@@ -495,31 +406,6 @@ class Database:
             return False, str(e)
         finally:
             conn.close()
-        
-
-    def rename_teachback_data(self, timestamp, new_name, teachback_obj: TeachbackData) -> tuple[bool, str]:
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            cursor.execute("""
-                UPDATE teachback_data
-                SET timestamp = ?, teachback_name = ?
-                WHERE session_id = ?
-            """, (timestamp, 
-                  new_name, 
-                  teachback_obj.session_id))
-
-            conn.commit()
-            teachback_obj.timestamp = timestamp
-            teachback_obj.teachback_name = new_name
-
-            return True, ''
-        except sqlite3.Error as e:
-            return False, str(e)
-        finally:
-            conn.close()
-        
 
     def delete_account(self, user_obj: User) -> tuple[bool, str]:
         conn = self.get_connection()
@@ -576,25 +462,8 @@ class Database:
         try:
             cursor.execute("""
                 DELETE FROM quiz_data
-                WHERE quiz_id AND session_id = ?
+                WHERE quiz_id = ? AND session_id = ?
             """, (quiz_obj.quiz_id, quiz_obj.session_id,))
-
-            conn.commit()
-            return True, ''
-        except sqlite3.Error as e:
-            return False, str(e)
-        finally:
-            conn.close()
-
-    def delete_teachback_data(self, teachback_obj: TeachbackData):
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            cursor.execute("""
-                DELETE FROM teachback_data
-                WHERE teachback_id = ? AND session_id = ?
-            """, (teachback_obj.teachback_id, teachback_obj.session_id,))
 
             conn.commit()
             return True, ''

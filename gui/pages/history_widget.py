@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QWidget, QTreeWidgetItem, QInputDialog, QMessageBox
 from PyQt6.QtGui import QTextCharFormat, QTextBlockFormat
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.database import Database
-from models.session import Session, QuizData, TeachbackData, ChatData
+from models.session import Session, QuizData, ChatData
 
 CURR_DIR = Path(__file__).resolve().parents[2]
 UI_FILE_PATH = CURR_DIR / 'ui_designs' / 'history_widget.ui'
@@ -61,11 +61,6 @@ class HistoryWidget(QWidget):
                 name = quiz.quiz_name
                 QTreeWidgetItem(quiz_child, [name]).setData(0, Qt.ItemDataRole.UserRole, quiz)
 
-            teachback_child = QTreeWidgetItem(session_parent, ['Teachbacks'])
-            for teachback in session.teachback_datas:
-                name = teachback.teachback_name
-                QTreeWidgetItem(teachback_child, [name]).setData(0, Qt.ItemDataRole.UserRole, teachback)
-
             self.sessions_list.addTopLevelItem(session_parent)
 
         self.update_btn_state()
@@ -78,7 +73,7 @@ class HistoryWidget(QWidget):
 
     def on_item_clicked(self, item, column):
         self.preview_display.clear()
-        if item.text(column) in ['Quizzes', 'Teachbacks']:
+        if item.text(column) == 'Quizzes':
             self.selected_parent_item = None
             self.selected_item = None
             self.update_btn_state()
@@ -94,9 +89,6 @@ class HistoryWidget(QWidget):
         if branch == 'Quizzes':
             self.selected_parent_item = item.parent().parent().data(column, Qt.ItemDataRole.UserRole)
             self.display_quiz_details(self.selected_item)
-        elif branch == 'Teachbacks':
-            self.selected_parent_item = item.parent().parent().data(column, Qt.ItemDataRole.UserRole)
-            self.display_teachback_details(self.selected_item)
         else:
             self.selected_parent_item = item.parent().data(column, Qt.ItemDataRole.UserRole)
             self.display_chat_details(self.selected_item)
@@ -104,7 +96,7 @@ class HistoryWidget(QWidget):
         self.update_btn_state()
 
     def on_item_double_clicked(self, item, column):
-        if item.text(column) in ['Quizzes', 'Teachbacks']:
+        if item.text(column) == 'Quizzes':
             self.selected_parent_item = None
             self.selected_item = None
             self.update_btn_state()
@@ -117,7 +109,7 @@ class HistoryWidget(QWidget):
 
         branch = item.parent().text(column)
         self.selected_item = item.data(column, Qt.ItemDataRole.UserRole)
-        if branch in ['Quizzes', 'Teachbacks']:
+        if branch == 'Quizzes':
             self.selected_parent_item = item.parent().parent().data(column, Qt.ItemDataRole.UserRole)
         else:
             self.selected_parent_item = item.parent().data(column, Qt.ItemDataRole.UserRole)
@@ -126,7 +118,7 @@ class HistoryWidget(QWidget):
 
     def display_chat_details(self, chat_data: ChatData):
         self.preview_display.append(f"📝 Chat: {chat_data.chat_name}")
-        self.preview_display.append(f'📂 Uploaded file name: {chat_data.filename}')
+        self.preview_display.append(f'📂 Last uploaded filename: {chat_data.filename}')
         self.preview_display.append(f'📃 No# of messages: {chat_data.chat_length()}')
         self.preview_display.append(f'🕒 Last update: {chat_data.timestamp}\n\n')
 
@@ -134,9 +126,6 @@ class HistoryWidget(QWidget):
         for msg in chat_data.chats:
             if msg['role'] == 'user':
                 parts = msg['parts']
-                if 'User Question:' in parts:
-                    parts = parts.split('User Question:', 1)[1].strip()
-            
                 cursor.insertMarkdown("### 👤 You:&nbsp;\n")
                 cursor.insertText(f'{parts}\n\n')
             else:
@@ -151,7 +140,7 @@ class HistoryWidget(QWidget):
 
     def display_quiz_details(self, quiz_data: QuizData):
         self.preview_display.append(f"📝 Quiz: {quiz_data.quiz_name}")
-        self.preview_display.append(f"🕒 Last update: {quiz_data.timestamp}\n")
+        self.preview_display.append(f"🕒 Last update: {quiz_data.timestamp}\n\n")
 
         items = json.loads(quiz_data.quiz[1]['parts'])
         total = quiz_data.quiz_length()
@@ -183,29 +172,15 @@ class HistoryWidget(QWidget):
             cursor.insertBlock()
             cursor.setBlockFormat(QTextBlockFormat())
             cursor.setCharFormat(QTextCharFormat())
+            cursor.insertText('\n')
 
             if i+1 == total:
                 cursor.insertMarkdown('### 📊 Blind spot result:\n\n')
-                cursor.insertMarkdown(f'\n{quiz_data.feedbacks[i+1]}')
+                cursor.insertMarkdown(f'{quiz_data.feedbacks[i+1]}')
                 cursor.insertBlock()
                 cursor.setBlockFormat(QTextBlockFormat())
                 cursor.setCharFormat(QTextCharFormat())
 
-        self.preview_display.setTextCursor(cursor)
-        self.preview_display.verticalScrollBar().setValue(0)
-        
-
-    def display_teachback_details(self, teachback_data: TeachbackData):
-        self.preview_display.append(f"🗣️ Teach-back: {teachback_data.teachback_name}")
-        self.preview_display.append(f'🕒 Last update: {teachback_data.timestamp}\n')
-
-        self.preview_display.append(f'💬 Topic: {teachback_data.topic}')
-        self.preview_display.append(f'💡 Your Explanation:\n        {teachback_data.explanation}\n\n')
-        
-        cursor = self.preview_display.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        cursor.insertMarkdown("### 📝 Feedback:&nbsp;\n")
-        cursor.insertMarkdown(f"{teachback_data.teachback[1]['parts']}")
         self.preview_display.setTextCursor(cursor)
         self.preview_display.verticalScrollBar().setValue(0)
 
@@ -218,10 +193,6 @@ class HistoryWidget(QWidget):
             tab_idx = 1
             quiz_idx = self.selected_parent_item.quiz_datas.index(self.selected_item)
             self.session_load_requested.emit(self.selected_parent_item, tab_idx, quiz_idx)
-        elif isinstance(self.selected_item, TeachbackData):
-            tab_idx = 2
-            teachback_idx = self.selected_parent_item.teachback_datas.index(self.selected_item)
-            self.session_load_requested.emit(self.selected_parent_item, tab_idx, teachback_idx)
         else:
             tab_idx = 0
             self.session_load_requested.emit(self.selected_parent_item, tab_idx, -1)
@@ -280,20 +251,6 @@ class HistoryWidget(QWidget):
             else:
                 QMessageBox.warning(self, 'Rename Failed', message)
 
-        elif isinstance(self.selected_item, TeachbackData):
-            curr_name = self.selected_item.teachback_name
-            new_name, ok = QInputDialog.getText(self, 'Rename Teachback Session',
-                                                        'Enter a new name: ', text=curr_name)
-            if not ok or not new_name.strip():
-                return
-
-            success, message = self.db.rename_teachback_data(str_timestamp, new_name, self.selected_item)
-            if success:
-                QMessageBox.information(self, 'Renamed', f'Teachback Session renamed to:\n{new_name}')
-                self.refresh_history()
-            else:
-                QMessageBox.warning(self, 'Rename Failed', message)
-
     def delete_selected(self):
         if not self.selected_item:
             QMessageBox.warning(self, 'Delete Failed', 'Select a data first.')
@@ -337,7 +294,7 @@ class HistoryWidget(QWidget):
 
         elif isinstance(self.selected_item, QuizData):
             quiz_name = self.selected_item.quiz_name
-            reply = QMessageBox.question(self, 'Delete Chat Session',
+            reply = QMessageBox.question(self, 'Delete Quiz Session',
                                          f'Are you sure you want to delete:\n\n{quiz_name}\n\n',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                          QMessageBox.StandardButton.No)
@@ -352,23 +309,5 @@ class HistoryWidget(QWidget):
                 QMessageBox.warning(self, 'Delete Failed', message)
 
             self.session_delete_requested.emit(1)
-
-        elif isinstance(self.selected_item, TeachbackData):
-            teachback_name = self.selected_item.teachback_name
-            reply = QMessageBox.question(self, 'Delete Teachback Session',
-                                         f'Are you sure you want to delete:\n\n{teachback_name}\n\n',
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                         QMessageBox.StandardButton.No)
-
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-
-            success, message = self.db.delete_teachback_data(self.selected_item)
-            if success:
-                self.refresh_history()
-            else:
-                QMessageBox.warning(self, 'Delete Failed', message)
-
-            self.session_delete_requested.emit(2)
 
         self.preview_display.clear()

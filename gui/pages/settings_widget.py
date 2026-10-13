@@ -12,6 +12,7 @@ CURR_DIR = Path(__file__).resolve().parents[2]
 UI_FILE_PATH = CURR_DIR / 'ui_designs' / 'settings_widget.ui'
 
 class SettingsWidget(QWidget):
+    delete_requested = pyqtSignal()
     logout_requested = pyqtSignal()
 
     def __init__(self, db: Database, user: User):
@@ -53,7 +54,7 @@ class SettingsWidget(QWidget):
             return
         if confirm_password == new_password:
             QMessageBox.information(self, 'Changed', 'Password is changed successfully.')
-            success, message = self.db.change_password(new_password, self.user.user_id)
+            success, message = self.db.change_password(new_password, self.user)
             if not success:
                 QMessageBox.warning(self, 'Delete Failed', message)
         else:
@@ -116,5 +117,6 @@ class SettingsWidget(QWidget):
         success, message = self.db.delete_account(self.user)
         if success:
             QMessageBox.information(self, 'Deleted', 'Account deleted successfully.')
+            self.delete_requested.emit()
         else:
             QMessageBox.warning(self, 'Delete Failed', message)

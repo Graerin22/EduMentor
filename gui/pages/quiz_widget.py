@@ -91,7 +91,7 @@ class QuizWidget(QWidget):
         if not self.current_session or not session_obj.quiz_datas or item_idx < 0:
             return
 
-        self.quiz_data = session_obj.quiz_datas[item_idx]
+        self.quiz_data.quiz = session_obj.quiz_datas[item_idx].quiz
 
         self.total_questions = self.quiz_data.quiz_length()
         self.last_answered_index = -1
@@ -127,12 +127,40 @@ class QuizWidget(QWidget):
         if self.quiz_data.quiz or self.feedback_text.toPlainText().strip():
             return
         if not self.current_session:
-            self.feedback_text.setText('⚠️ Save a document and a message on the Mentor Tab first.')
+            self.feedback_text.setText('⚠️ Chat with the AI or upload a document on the Mentor tab first.')
             self.generate_btn.setEnabled(False)
             return
         
         self.feedback_text.setText('✅ You can generate quiz.')
         self.generate_btn.setEnabled(True)
+
+    def _build_quiz_source(self) -> str | None:
+        if not self.current_session:
+            return None
+
+        chat_data = self.current_session.chat_data
+        doc  = (chat_data.document_text or '').strip()
+        turns = chat_data.chats or []
+
+        if doc and turns:
+            # Document is the primary source; recent chat sharpens the scope.
+            recent = '\n'.join(
+                f"{'User' if m['role']=='user' else 'Tutor'}: {m['parts']}"
+                for m in turns[-6:]
+            )
+            return (f"PRIMARY SOURCE (document \"{chat_data.filename}\"):\n"
+                    f"{doc[:7000]}\n\n"
+                    f"RECENT CONVERSATION (shows what the user is focusing on):\n"
+                    f"{recent[:2000]}")
+
+        if doc:
+            return f"SOURCE DOCUMENT (\"{chat_data.filename}\"):\n{doc[:9000]}"
+
+        transcript = '\n'.join(
+            f"{'User' if m['role']=='user' else 'Tutor'}: {m['parts']}"
+            for m in turns
+        )
+        return f"CONVERSATION TRANSCRIPT:\n{transcript[:9000]}"
 
     def generate_quiz(self):
         try:
@@ -153,8 +181,9 @@ class QuizWidget(QWidget):
         self.total_questions = total_questions
         self.last_answered_index = -1
 
-        content = f"""Generate {self.total_questions} multiple-choice questions based on this document.
-SOURCE DOC: {self.current_session.chat_data.document_text[:8000]}
+        source = self._build_quiz_source()
+        content = f"""Generate {self.total_questions} multiple-choice questions based on the material below.
+{source}
 Return ONLY valid JSON in this exact format:
 {{
     "questions": [
@@ -170,6 +199,8 @@ CRITICAL RULES:
 1. Prepend sequential numbers (1., 2.) to each question.
 2. Write all math formulas using clean plain text unicode operators and true subscripts/superscripts (e.g., aₙ = 6aₙ₋₁).
 3. Do NOT use LaTeX, MathJax, or raw dollar sign notation ($ or $$).
+4. If the material is a conversation, quiz on the concepts discussed. You may
+   use general knowledge to fill gaps.
 """
         self.quiz_data.quiz.append({'role':'user', 'parts':content})
         self.quiz_worker = QuizWorker(self.quiz_data.quiz)
@@ -242,7 +273,7 @@ CRITICAL FORMATTING RULES:
         if next_idx < len(self.quiz_data.feedbacks):
             self.set_feedback(self.quiz_data.feedbacks[next_idx])
 
-        if next_idx == self.total_questions-1:
+        if next_idx+1 == self.total_questions:
             self.next_btn.setEnabled(False)
         elif next_idx <= self.last_answered_index:
             self.next_btn.setEnabled(True)
